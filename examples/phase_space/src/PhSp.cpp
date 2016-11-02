@@ -55,6 +55,10 @@
 #include <TString.h>
 #include <TStyle.h>
 #endif
+
+#if THRUST_DEVICE_SYSTEM==THRUST_DEVICE_SYSTEM_OMP
+#include <omp.h>
+#endif
 /**
  * @file
  * @example PhSp.cpp
@@ -103,6 +107,17 @@ GInt_t main(int argv, char** argc) {
 
     // Prepare an event list
     hydra::Events<3, hydra::device> event_list(nentries);
+
+#if THRUST_DEVICE_SYSTEM==THRUST_DEVICE_SYSTEM_CUDA
+        std::cout << "Running on CUDA" << std::endl;
+#endif
+#if THRUST_DEVICE_SYSTEM==THRUST_DEVICE_SYSTEM_OMP
+//        std::cout << "Running on " << omp_get_num_theads() << " (of " << omp_get_max_threads() << ") OMP cores" << std::endl;
+//        std::cout << "Running on OpenMP" << std::endl;
+#endif
+#if THRUST_DEVICE_SYSTEM==THRUST_DEVICE_SYSTEM_TBB
+        std::cout << "Running on TBB" << std::endl;
+#endif
 
     // Fill the event list
     {
