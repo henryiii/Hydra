@@ -29,8 +29,6 @@
 #include <assert.h>
 #include <time.h>
 #include <vector>
-#include <array>
-#include <chrono>
 #include <memory>
 
 //this lib
@@ -45,6 +43,7 @@
 #include <hydra/Copy.h>
 
 //root
+#ifdef ROOT_FOUND
 #include <TROOT.h>
 #include <TH1D.h>
 #include <TF1.h>
@@ -54,7 +53,7 @@
 #include <TColor.h>
 #include <TString.h>
 #include <TStyle.h>
-
+#endif
 /**
  * @file
  * @example PhSp.cpp
@@ -68,17 +67,17 @@
 
 /// Simple timer object, prints time when it goes out of scope
 class TimeIt {
-    decltype(std::chrono::high_resolution_clock::now()) start;
+    clock_t start;
     std::string name;
 
     public:
-    TimeIt(std::string name_ = ""): name(name_) {start = std::chrono::high_resolution_clock::now();}
+    TimeIt(std::string name_ = ""): name(name_) {start = clock();}
     ~TimeIt() {
-        auto end = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double, std::milli> elapsed = end - start;
+        clock_t end = clock();
+        float elapsed = float(end - start) / CLOCKS_PER_SEC;
 
         std::cout << "-----------------------------------------" << std::endl;
-        std::cout << name <<  " | Time = "<< elapsed.count() << " ms" << std::endl;
+        std::cout << name <<  " | Time = "<< elapsed << " s" << std::endl;
         std::cout << "-----------------------------------------" << std::endl;
     }
 };
@@ -110,15 +109,16 @@ GInt_t main(int argv, char** argc) {
         phsp.Generate(mother, event_list.begin(), event_list.end());
     }
 
-    // Prepare a ROOT histogram
-    TH2D dalitz("dalitz", ";M(K#pi); M(J/#Psi#pi)", 100,
-            pow(daughter2_mass+daughter3_mass,2), pow(mother_mass - daughter1_mass,2),
-            100,    pow(daughter1_mass+daughter3_mass,2), pow(mother_mass - daughter2_mass,2));
-
     // Copy the events to the host
     auto time_ptr = std::make_shared<TimeIt>("Copying to host");
     hydra::Events<3, hydra::host> event_list_host(event_list);
     time_ptr.reset();
+
+#ifdef ROOT_FOUND
+    // Prepare a ROOT histogram
+    TH2D dalitz("dalitz", ";M(K#pi); M(J/#Psi#pi)", 100,
+            pow(daughter2_mass+daughter3_mass,2), pow(mother_mass - daughter1_mass,2),
+            100,    pow(daughter1_mass+daughter3_mass,2), pow(mother_mass - daughter2_mass,2));
 
     // Fill the histogram
     {
@@ -145,6 +145,7 @@ GInt_t main(int argv, char** argc) {
     canvas_gauss.Print("PHSP.png");
     //myapp->Run();
     }
+    #endif
 
     return 0;
 }
