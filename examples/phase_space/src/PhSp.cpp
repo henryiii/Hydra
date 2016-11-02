@@ -30,6 +30,7 @@
 #include <time.h>
 #include <vector>
 #include <memory>
+#include <chrono>
 
 //this lib
 #include <hydra/Types.h>
@@ -67,17 +68,17 @@
 
 /// Simple timer object, prints time when it goes out of scope
 class TimeIt {
-    clock_t start;
+    decltype(std::chrono::high_resolution_clock::now()) start;
     std::string name;
 
     public:
-    TimeIt(std::string name_ = ""): name(name_) {start = clock();}
+    TimeIt(std::string name_ = ""): name(name_) {start = std::chrono::high_resolution_clock::now();}
     ~TimeIt() {
-        clock_t end = clock();
-        float elapsed = float(end - start) / CLOCKS_PER_SEC;
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double, std::milli> elapsed = end - start;
 
         std::cout << "-----------------------------------------" << std::endl;
-        std::cout << name <<  " | Time = "<< elapsed << " s" << std::endl;
+        std::cout << name <<  " | Time = "<< elapsed.count() << " ms" << std::endl;
         std::cout << "-----------------------------------------" << std::endl;
     }
 };
