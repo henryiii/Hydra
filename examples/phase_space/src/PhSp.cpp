@@ -112,8 +112,7 @@ GInt_t main(int argv, char** argc) {
         std::cout << "Running on CUDA" << std::endl;
 #endif
 #if THRUST_DEVICE_SYSTEM==THRUST_DEVICE_SYSTEM_OMP
-//        std::cout << "Running on " << omp_get_num_theads() << " (of " << omp_get_max_threads() << ") OMP cores" << std::endl;
-//        std::cout << "Running on OpenMP" << std::endl;
+        std::cout << "Running on " << omp_get_max_threads() << " OMP cores" << std::endl;
 #endif
 #if THRUST_DEVICE_SYSTEM==THRUST_DEVICE_SYSTEM_TBB
         std::cout << "Running on TBB" << std::endl;
