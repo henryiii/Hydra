@@ -15,6 +15,11 @@
 find_program(ROOT_CONFIG_EXECUTABLE root-config
   PATHS $ENV{ROOTSYS}/bin)
 
+if(NOT ROOT_CONFIG_EXECUTABLE)
+    set(ROOT_FOUND, FALSE)
+    return()
+endif()
+
 execute_process(
     COMMAND ${ROOT_CONFIG_EXECUTABLE} --prefix
     OUTPUT_VARIABLE ROOTSYS
@@ -49,6 +54,7 @@ foreach(_cpt ${rootlibs} ${ROOT_FIND_COMPONENTS})
     list(REMOVE_ITEM ROOT_FIND_COMPONENTS ${_cpt})
   endif()
 endforeach()
+
 list(REMOVE_DUPLICATES ROOT_LIBRARIES)
 
 execute_process(
