@@ -17,6 +17,7 @@ endif()
 
 find_package(CUDA 7.5)
 if(CUDA_FOUND)
+        message(STATUS "Making CUDA build")
 	SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -std=c++11; -I${CMAKE_CURRENT_SOURCE_DIR}/include --cudart ;  static ; -O4 ;--expt-relaxed-constexpr; -ftemplate-backtrace-limit=0; --expt-extended-lambda;--relocatable-device-code=false ; --generate-line-info ;
 	 -Xptxas -fmad=true ;-Xptxas -dlcm=cg; -Xptxas --opt-level=4 ) #) 
 # 
@@ -47,19 +48,38 @@ if(CUDA_FOUND)
 
 endif()
 
+find_package(TBB)
+if(TBB_FOUND)
+    message(STATUS "Making TBB build")
+    # I wish this was version 3+ only, then I could use the tbb target :(
+    include_directories("${TBB_INCLUDE_DIRS}")
+endif()
 
 get_property(dirs DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
 
 add_executable(PhSp src/PhSp.cpp)
 
-set(CMAKE_CXX_FLAGS "-D_GLIBCXX_USE_CXX11_ABI=0 -DTHRUST_VARIADIC_TUPLE --std=c++11  -march=native -fPIC -O3 -fopenmp -lgomp -Wl,--no-undefined,--no-allow-shlib-undefined" CACHE STRING "compile flags" FORCE)
-
-set_target_properties(PhSp PROPERTIES 
-COMPILE_FLAGS "-fopenmp -DTHRUST_HOST_SYSTEM=THRUST_HOST_SYSTEM_CPP -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_OMP -lgomp")
-
-if(ROOT_FOUND)
-target_link_libraries(PhSp
-${ROOT_LIBRARIES}
-)
+set(HYDRA_GENERAL_FLAGS "-DTHRUST_VARIADIC_TUPLE --std=c++11 -fPIC -fopenmp -Wl,--no-undefined,--no-allow-shlib-undefined")
+set(HYDRA_GCC_FLAGS "-D_GLIBCXX_USE_CXX11_ABI=0 -march=native -O3")
+set(HYDRA_ICC_FLAGS "-xHost -O3 -march=native")
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+  set(HYDRA_FLAGS "${HYDRA_GENERAL_FLAGS} ${HYDRA_GCC_FLAGS}")
+elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
+  set(HYDRA_FLAGS "${HYDRA_GENERAL_FLAGS} ${HYDRA_ICC_FLAGS}")
 endif()
 
+set(CMAKE_CXX_FLAGS "${HYDRA_FLAGS}" CACHE STRING "compile flags" FORCE)
+
+set_target_properties(PhSp PROPERTIES 
+COMPILE_FLAGS "-DTHRUST_HOST_SYSTEM=THRUST_HOST_SYSTEM_OMP -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_OMP")
+
+if(ROOT_FOUND)
+target_link_libraries(PhSp ${ROOT_LIBRARIES} "gomp")
+endif()
+
+if(TBB_FOUND)
+add_executable(PhSpTBB src/PhSp.cpp)
+set_target_properties(PhSpTBB PROPERTIES 
+COMPILE_FLAGS "-DTHRUST_HOST_SYSTEM=THRUST_HOST_SYSTEM_TBB -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_TBB  ${TBB_DEFINITIONS}")
+target_link_libraries(PhSpTBB ${TBB_LIBRARIES} "gomp")
+endif()
