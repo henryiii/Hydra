@@ -15,7 +15,7 @@ if(ROOT_FOUND)
 endif()
     
 
-find_package(CUDA 7.5)
+find_package(CUDA 8.0)
 if(CUDA_FOUND)
         message(STATUS "Making CUDA build")
 	SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -std=c++11; -I${CMAKE_CURRENT_SOURCE_DIR}/include --cudart ;  static ; -O4 ;--expt-relaxed-constexpr; -ftemplate-backtrace-limit=0; --expt-extended-lambda;--relocatable-device-code=false ; --generate-line-info ;
