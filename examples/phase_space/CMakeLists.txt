@@ -7,6 +7,8 @@ SET(CMAKE_MODULE_PATH "${Hydra_CMAKE_DIR}" ${CMAKE_MODULE_PATH})
 
 include_directories(${PROJECT_SOURCE_DIR}/include)
 
+find_package(OpenMP)
+
 find_package(ROOT)
 if(ROOT_FOUND)
     include_directories(${ROOT_INCLUDE_DIR})
@@ -38,7 +40,7 @@ if(CUDA_FOUND)
 
     cuda_add_executable(PhSpCuda
         src/PhSp.cu
-    OPTIONS -Xcompiler -fopenmp -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_CUDA  -DTHRUST_HOST_SYSTEM=THRUST_HOST_SYSTEM_OMP -lgomp
+        OPTIONS -Xcompiler ${OpenMP_CXX_FLAGS} -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_CUDA  -DTHRUST_HOST_SYSTEM=THRUST_HOST_SYSTEM_OMP -lgomp
     )
     
     target_link_libraries(PhSpCuda
@@ -59,7 +61,7 @@ get_property(dirs DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTO
 
 add_executable(PhSp src/PhSp.cpp)
 
-set(HYDRA_GENERAL_FLAGS "-DTHRUST_VARIADIC_TUPLE --std=c++11 -fPIC -fopenmp -Wl,--no-undefined,--no-allow-shlib-undefined")
+set(HYDRA_GENERAL_FLAGS "-DTHRUST_VARIADIC_TUPLE --std=c++11 -fPIC ${OpenMP_CXX_FLAGS} -Wl,--no-undefined,--no-allow-shlib-undefined")
 set(HYDRA_GCC_FLAGS "-D_GLIBCXX_USE_CXX11_ABI=0 -march=native -O3")
 set(HYDRA_ICC_FLAGS "-xHost -O3 -march=native")
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
