@@ -40,13 +40,16 @@
 #include <vector>
 #include <string>
 #include <map>
-#include <omp.h>
 #include <iostream>
 #include <ostream>
 #include <algorithm>
 #include <time.h>
 #include <stdio.h>
 //#include <math.h>
+
+#if(THRUST_HOST_SYSTEM==THRUST_HOST_SYSTEM_OMP || THRUST_DEVICE_SYSTEM==THRUST_DEVICE_SYSTEM_OMP)
+#include <omp.h>
+#endif
 
 #include <hydra/detail/Config.h>
 #include <hydra/Types.h>

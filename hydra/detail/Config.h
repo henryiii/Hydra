@@ -35,7 +35,11 @@
 
 #include <thrust/detail/config.h>
 #include <thrust/detail/config/host_device.h>
+
+
+#if(THRUST_HOST_SYSTEM==THRUST_HOST_SYSTEM_OMP || THRUST_DEVICE_SYSTEM==THRUST_DEVICE_SYSTEM_OMP)
 #include <omp.h>
+#endif
 
 
 #if defined(__CUDACC__) && !(defined(__CUDA__) && defined(__clang__))

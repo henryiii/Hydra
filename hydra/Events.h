@@ -39,12 +39,15 @@
 #include <vector>
 #include <string>
 #include <map>
-#include <omp.h>
 #include <iostream>
 #include <ostream>
 #include <algorithm>
 #include <time.h>
 #include <stdio.h>
+
+#if(THRUST_HOST_SYSTEM==THRUST_HOST_SYSTEM_OMP || THRUST_DEVICE_SYSTEM==THRUST_DEVICE_SYSTEM_OMP)
+#include <omp.h>
+#endif
 
 #include <thrust/copy.h>
 

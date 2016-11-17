@@ -10,6 +10,8 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 find_package(OpenMP)
 
 find_package(ROOT)
+set(ROOT_FOUND off)
+
 if(ROOT_FOUND)
     include_directories(${ROOT_INCLUDE_DIR})
     link_directories(${ROOT_LIBRARY_DIR})
@@ -55,33 +57,40 @@ if(TBB_FOUND)
     message(STATUS "Making TBB build")
     # I wish this was version 3+ only, then I could use the tbb target :(
     include_directories("${TBB_INCLUDE_DIRS}")
+else()
+    message(STATUS "No TBB found")
 endif()
 
 get_property(dirs DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
 
-add_executable(PhSp src/PhSp.cpp)
 
-set(HYDRA_GENERAL_FLAGS "-DTHRUST_VARIADIC_TUPLE --std=c++11 -fPIC ${OpenMP_CXX_FLAGS} -Wl,--no-undefined,--no-allow-shlib-undefined")
+set(HYDRA_GENERAL_FLAGS "-DTHRUST_VARIADIC_TUPLE --std=c++11 -fPIC ${OpenMP_CXX_FLAGS}") # -Wl,--no-undefined,--no-allow-shlib-undefined")
 set(HYDRA_GCC_FLAGS "-D_GLIBCXX_USE_CXX11_ABI=0 -march=native -O3")
 set(HYDRA_ICC_FLAGS "-xHost -O3 -march=native")
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   set(HYDRA_FLAGS "${HYDRA_GENERAL_FLAGS} ${HYDRA_GCC_FLAGS}")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
   set(HYDRA_FLAGS "${HYDRA_GENERAL_FLAGS} ${HYDRA_ICC_FLAGS}")
+else()
+  set(HYDRA_FLAGS "${HYDRA_GENERAL_FLAGS}")
 endif()
 
 set(CMAKE_CXX_FLAGS "${HYDRA_FLAGS}" CACHE STRING "compile flags" FORCE)
 
+
+if(OMP_FOUND)
+add_executable(PhSp src/PhSp.cpp)
 set_target_properties(PhSp PROPERTIES 
 COMPILE_FLAGS "-DTHRUST_HOST_SYSTEM=THRUST_HOST_SYSTEM_OMP -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_OMP")
+endif()
 
 if(ROOT_FOUND)
-target_link_libraries(PhSp ${ROOT_LIBRARIES} "gomp")
+target_link_libraries(PhSp ${ROOT_LIBRARIES}) # "gomp"
 endif()
 
 if(TBB_FOUND)
 add_executable(PhSpTBB src/PhSp.cpp)
 set_target_properties(PhSpTBB PROPERTIES 
 COMPILE_FLAGS "-DTHRUST_HOST_SYSTEM=THRUST_HOST_SYSTEM_TBB -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_TBB  ${TBB_DEFINITIONS}")
-target_link_libraries(PhSpTBB ${TBB_LIBRARIES} "gomp")
+target_link_libraries(PhSpTBB ${TBB_LIBRARIES})
 endif()

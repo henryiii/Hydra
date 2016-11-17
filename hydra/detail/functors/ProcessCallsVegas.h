@@ -40,8 +40,10 @@
 #include <hydra/detail/utility/Utility_Tuple.h>
 #include <thrust/tuple.h>
 #include <thrust/functional.h>
-#include <omp.h>
 
+#if(THRUST_HOST_SYSTEM==THRUST_HOST_SYSTEM_OMP || THRUST_DEVICE_SYSTEM==THRUST_DEVICE_SYSTEM_OMP)
+#include <omp.h>
+#endif
 
 namespace hydra{
 
