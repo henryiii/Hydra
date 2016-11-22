@@ -129,11 +129,12 @@ public:
 
 
 		final=thrust::transform_reduce(select_system(system), first, last,
-				detail::LogLikelihood<U, IteratorData, IteratorCache>(fFunctor, fFunctor.GetNorm(),
+				detail::LogLikelihood<U, IteratorData, IteratorCache>(fFunctor,
 						this->GetSumW()     , this->GetSumW2() ,
 						this->GetDataBegin(), this->GetCacheBegin(),
-						this->isWeighted()  , this->isCached()),
-						init, thrust::plus<GReal_t>());
+						this->isWeighted()  , this->isCached()
+                        ),
+					init, thrust::plus<GReal_t>());
 
 
 		//std::cout <<this->GetSumW() + final << std::endl;
