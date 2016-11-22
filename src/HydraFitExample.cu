@@ -334,6 +334,7 @@ GInt_t main(int argv, char** argc)
 	// create Minimize minimizer
 	MnMinimize minimize(modelFCN,upar.GetState() ,  strategy);
 	FunctionMinimum *minimum=0;
+
 	// ... Minimize and profile the time
 	auto start = std::chrono::high_resolution_clock::now();
 
@@ -357,7 +358,7 @@ GInt_t main(int argv, char** argc)
 
 	//------------------------------------------------------
 	//Sampling the fitted model
-    //Set the function with the fitted parameters
+        //Set the function with the fitted parameters
 	model.SetParameters(minimum->UserParameters().Params());
 	model.PrintRegisteredParameters();
 

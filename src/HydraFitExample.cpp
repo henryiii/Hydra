@@ -87,12 +87,12 @@ using namespace examples;
 
 /**
  * @file
- * @example HydraFitExample.cpp
+ * @example HydraFitExample.cu
  * @brief HydraFitExample take parameters from the command line, fill a range with random numbers sampled from
  * the model and perform a extended likelihood fit in parallel using the OpenMP backend.
- * @param -c (--combined-minimizer ) :  Use Migrad + Simplex for minimization
- * @param -i=<double> (--max-iterations=<double> ): Maximum number of iterations for migrad and minimize call.
- * @param -t=<double> (--tolerance=<double> ): Tolerance parameter for migrad and minimize call.
+ * @param -c (--combined-minimizer):  Use Migrad + Simplex for minimization
+ * @param -i=<double> (--max-iterations=<double>) : Maximum number of iterations for migrad and minimize call.
+ * @param -t=<double> (--tolerance=<double>) : Tolerance parameter for migrad and minimize call.
  * @param -n=<long> (--number-of-events=<long>) (required):  Number of events for each component.
  *
  * Usage:
@@ -114,9 +114,9 @@ using namespace examples;
  * @file
  * @brief HydraFitExample take parameters from the command line, fill a range with random numbers sampled from
  * the model and perform a extended likelihood fit in parallel using the OpenMP backend.
- * @param -c (--combined-minimizer ) :  Use Migrad + Simplex for minimization
- * @param -i=<double> (--max-iterations=<double> ): Maximum number of iterations for migrad and minimize call.
- * @param -t=<double> (--tolerance=<double> ): Tolerance parameter for migrad and minimize call.
+ * @param -c (--combined-minimizer):  Use Migrad + Simplex for minimization
+ * @param -i=<double> (--max-iterations=<double>) : Maximum number of iterations for migrad and minimize call.
+ * @param -t=<double> (--tolerance=<double>) : Tolerance parameter for migrad and minimize call.
  * @param -n=<long> (--number-of-events=<long>) (required):  Number of events for each component.
  *
  * Usage:
@@ -147,7 +147,7 @@ GInt_t main(int argv, char** argc)
 
 		TCLAP::ValueArg<size_t> NEventsArg("n", "number-of-events",
 				"Number of events for each component.",
-				true, 1e6, "long");
+				true, 1e6, "long int");
 		cmd.add(NEventsArg);
 
 		TCLAP::ValueArg<GReal_t> ToleranceArg("t", "tolerance",
@@ -157,7 +157,7 @@ GInt_t main(int argv, char** argc)
 
 		TCLAP::ValueArg<size_t> IterationsArg("i", "max-iterations",
 				"Maximum number of iterations for migrad and minimize call.",
-				false, 5000, "double");
+				false, 50000, "long int");
 		cmd.add(IterationsArg);
 
 		TCLAP::SwitchArg MinimizeArg("c","combined-minimizer",
@@ -180,7 +180,7 @@ GInt_t main(int argv, char** argc)
 	}
 
 	//Print::SetLevel(0);
-	ROOT::Minuit2::MnPrint::SetLevel(2);
+	ROOT::Minuit2::MnPrint::SetLevel(3);
 	//----------------------------------------------
 
 	//Generator with current time count as seed.
@@ -275,21 +275,21 @@ GInt_t main(int argv, char** argc)
 	vegas.Integrate(Gaussian1_PDF);
 	cout << ">>> GaussianA intetgral prior fit "<< endl;
 	cout << "Result: " << vegas.GetResult() << " +/- "
-		 << vegas.GetAbsError() << " Chi2: "<< state.GetChiSquare() << endl;
+		 << vegas.GetAbsError() << " Chi2: "<< vegas.GetState().GetChiSquare() << endl;
 
 	Gaussian2_PDF.PrintRegisteredParameters();
 
 	vegas.Integrate(Gaussian2_PDF);
 	cout << ">>> GaussianB intetgral prior fit "<< endl;
 	cout << "Result: " << vegas.GetResult() << " +/- "
-			<< vegas.GetAbsError() << " Chi2: "<< state.GetChiSquare() << endl;
+			<< vegas.GetAbsError() << " Chi2: "<< vegas.GetState().GetChiSquare() << endl;
 
 	Exponential_PDF.PrintRegisteredParameters();
 
 	vegas.Integrate(Exponential_PDF);
 	cout << ">>> Exponential intetgral prior fit "<< endl;
 	cout << "Result: " << vegas.GetResult() << " +/- "
-			<< vegas.GetAbsError() << " Chi2: "<< state.GetChiSquare() << endl;
+			<< vegas.GetAbsError() << " Chi2: "<< vegas.GetState().GetChiSquare() << endl;
 
 	//----------------------------------------------------------------------
 	//add the pds to make a extended pdf model
@@ -307,7 +307,6 @@ GInt_t main(int argv, char** argc)
 	Generator.Gauss(mean1_p , sigma1_p, data_d.begin(), data_d.begin() + nentries );
 	Generator.Gauss(mean2_p , sigma2_p, data_d.begin()+ nentries, data_d.begin() + 2*nentries );
 	Generator.Uniform(min[0], max[0], data_d.begin()+ 2*nentries, data_d.end() );
-
 
 	//---------------------------
 	//get data from device and fill histogram
@@ -339,6 +338,7 @@ GInt_t main(int argv, char** argc)
 
 	// ... Minimize and profile the time
 	auto start = std::chrono::high_resolution_clock::now();
+
 	if(use_comb_minimizer){
 		 minimum = new FunctionMinimum(minimize(iterations, tolerance));
 	}
@@ -359,7 +359,7 @@ GInt_t main(int argv, char** argc)
 
 	//------------------------------------------------------
 	//Sampling the fitted model
-    //Set the function with the fitted parameters
+        //Set the function with the fitted parameters
 	model.SetParameters(minimum->UserParameters().Params());
 	model.PrintRegisteredParameters();
 
@@ -384,6 +384,11 @@ GInt_t main(int argv, char** argc)
 	hist_gaussian_fit.Scale(hist_gaussian.Integral()/hist_gaussian_fit.Integral() );
 	hist_gaussian_plot.Scale(hist_gaussian.Integral()/hist_gaussian_plot.Integral() );
 
+
+
+	/***********************************
+	 * RootApp, Drawing...
+	 ***********************************/
 
 	TApplication *myapp=new TApplication("myapp",0,0);
 
