@@ -438,7 +438,7 @@ struct BaseFunctor
 				operator()<T1>( std::forward<T1>(x) );
 	}
 
-private:
+protected:
 
    // mutable GReal_t fNorm;
 	int  fCacheIndex;
