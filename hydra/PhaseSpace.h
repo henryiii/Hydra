@@ -63,6 +63,7 @@
 
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/iterator/counting_iterator.h>
+#include <thrust/count.h>
 #include <thrust/tuple.h>
 #include <thrust/extrema.h>
 #include <thrust/random.h>
