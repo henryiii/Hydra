@@ -1,186 +1,236 @@
-### CMakeList for MC Hydra
+cmake_minimum_required(VERSION 3.4)
 
-cmake_minimum_required(VERSION 3.0)
-cmake_policy(SET CMP0054 OLD)
+# Project name
+project(Hydra
+    LANGUAGES CXX
+    VERSION 2.0.0)
 
-# project name
-project(Hydra)
-
-# The version number.
-set (Hydra_VERSION_MAJOR 1)
-set (Hydra_VERSION_MINOR 0)
-set (Hydra_VERSION_PATCH 0)
-
-if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
- MESSAGE(STATUS "===> Compiling with Clang")
-elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
- MESSAGE(STATUS "===> Compiling with GCC")
-elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
- MESSAGE(STATUS "===> Compiling with Intel")
-elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
- MESSAGE(STATUS "===> Compiling with MSVC")
-endif()
-
-# warn user if system is not UNIX
+# Warn user if system is not UNIX
 if(NOT UNIX)
-  message(FATAL_ERROR "This is an unsupported system.")
+    message(WARN "This is an unsupported system.")
 endif()
 
-SET(Hydra_CMAKE_DIR "${PROJECT_SOURCE_DIR}/cmake")
-SET(CMAKE_MODULE_PATH "${Hydra_CMAKE_DIR}" ${CMAKE_MODULE_PATH})
-SET(CMAKE_VERBOSE_MAKEFILE  ON)
+set(Hydra_CMAKE_DIR "${PROJECT_SOURCE_DIR}/cmake")
+set(CMAKE_MODULE_PATH "${Hydra_CMAKE_DIR}" ${CMAKE_MODULE_PATH})
+
+# C++11 support required
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Add -fPIC
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+# Users can link to this library or one of the _cpp, _omp, _tbb, or _cuda variants (special care needed for cuda)
+add_library(Hydra INTERFACE)
+target_link_libraries(Hydra INTERFACE ${CMAKE_DL_LIBS})
+
+# Generator expressions
+# True if in release mode
+set(rel_mode "$<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>>")
+# True if compiler is GCC
+set(gcc_mode "$<CXX_COMPILER_ID:GNU>")
+# True if release and GCC compiler
+set(rel_gcc_mode "$<AND:${rel_mode},${gcc_mode}>")
 
 
+# Just in case GCC gets higher performance with O4
+target_compile_options(Hydra INTERFACE -ftemplate-backtrace-limit=0 -Wextra $<${rel_mode}:-march=native> $<${rel_gcc_mode}:-O4>)
 
-#options to gcc
-include(CheckCXXCompilerFlag)
-CHECK_CXX_COMPILER_FLAG("--std=c++11" COMPILER_SUPPORTS_CXX11)
-if(NOT COMPILER_SUPPORTS_CXX11)
- message(FATAL "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
+# This removes the common warning that a parameter is unused.
+# Due to the way Hydra has set signatures in some places,
+# it is tempting to add a name to all parameters, causing this warning.
+# You can leave unused parameters explicitly unnamed in most cases,
+# but this is not likely to be worth warning the user about.
+target_compile_options(Hydra INTERFACE -Wno-unused-parameter)
+
+# Get TCLAP
+# Empty target if TClap does not exist, use TCLAP_FOUND to check in CMake
+find_package(TCLAP)
+add_library(tclap_lib INTERFACE)
+if(TCLAP_FOUND)
+    message(STATUS "TCLAP include path: ${TCLAP_INCLUDE_DIR}")
+    target_include_directories(tclap_lib INTERFACE "${TCLAP_INCLUDE_DIR}")
+else()
+    message(STATUS "TCLAP not found")
 endif()
 
-set(CMAKE_CXX_FLAGS "-ftemplate-backtrace-limit=0 --std=c++11 -W -march=native -fPIC -O4 -ldl" CACHE STRING "compile flags" FORCE)
-
-# get TCLAP
-find_package(TCLAP REQUIRED)
-include_directories(${TCLAP_INCLUDE_DIR})
-
-# get ROOT
+# Get ROOT
+# Empty target if ROOT does not exist, use _ROOT_AVAILABLE_ to check in C++
 find_package(ROOT COMPONENTS Minuit2)
+add_library(ROOT_lib INTERFACE)
 if(ROOT_FOUND)
-include_directories(${ROOT_INCLUDE_DIR})
-link_directories(${ROOT_LIBRARY_DIR})
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_ROOT_AVAILABLE_")
+    target_include_directories(ROOT_lib INTERFACE "${ROOT_INCLUDE_DIR}")
+    target_link_libraries(ROOT_lib INTERFACE "${ROOT_LIBRARIES}")
+    target_compile_options(ROOT_lib INTERFACE "-D_ROOT_AVAILABLE_")
+    message(STATUS "ROOT include path: ${ROOT_INCLUDE_DIR}")
+    message(STATUS "ROOT library path: ${ROOT_LIBRARY_DIR}" )
+    message(STATUS "ROOT libraries: ${ROOT_LIBRARIES}")
 endif(ROOT_FOUND)
 
-#get CUDA
-find_package(CUDA 8.0) 
+# Get CUDA
+find_package(CUDA 8.0)
 if(CUDA_FOUND)
-link_directories( ${CUDA_TOOLKIT_ROOT_DIR}/lib64/)
-endif(CUDA_FOUND)
+    target_link_directories(Hydra INTERFACE ${CUDA_TOOLKIT_ROOT_DIR}/lib64/)
+endif()
 
-#get TBB
-find_package(TBB )
+# Get TBB
+find_package(TBB)
 if(TBB_FOUND)
-include_directories(${TBB_INCLUDE_DIRS})
-link_directories(${TBB_LIBRARY})
-endif(TBB_FOUND)
+    add_library(TBB_lib INTERFACE)
+    target_include_directories(TBB_lib INTERFACE ${TBB_INCLUDE_DIRS})
+    target_link_libraries(TBB_lib INTERFACE ${TBB_LIBRARIES})
+    message(STATUS "TBB include: ${TBB_INCLUDE_DIRS}" )
+    message(STATUS "TBB libraries: ${TBB_LIBRARIES}" )
+endif()
 
-#get OpenMP
+# Get OpenMP
 find_package(OpenMP)
 if(OPENMP_CXX_FOUND OR OPENMP_FOUND)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-endif(OPENMP_CXX_FOUND OR OPENMP_FOUND)
+    # Only need to set up OpenMP target on old CMakes, newer ones provide it
+    if(NOT TARGET OpenMP::OpenMP_CXX)
+        add_library(OpenMP_CXX_Target INTERFACE)
+        add_library(OpenMP::OpenMP_CXX ALIAS OpenMP_CXX_Target)
+        target_compile_options(OpenMP_CXX_Target INTERFACE "${OpenMP_CXX_FLAGS}")
+        find_package(Threads REQUIRED)
+        target_link_libraries(OpenMP_CXX_Target INTERFACE Threads::Threads)
+        target_link_libraries(OpenMP_CXX_Target INTERFACE ${OpenMP_CXX_FLAGS})
+    endif()
+    message(STATUS "OpenMP flags: ${OpenMP_CXX_FLAGS}" )
+    message(STATUS "OpenMP libraries:  ${OpenMP_CXX_LIBRARIES}" )
+endif()
 
 
-#generate API documentation with Doxygen
+# Generate API documentation with Doxygen
 find_package(Doxygen)
-option(BUILD_DOCUMENTATION "Create and install the HTML based API documentation (requires Doxygen)" NO)
+option(BUILD_DOCUMENTATION "Create and install the HTML based API documentation (requires Doxygen)" OFF)
 
-#including directories
-include_directories(include;  ${PROJECT_SOURCE_DIR})
+# Including directories
+target_include_directories(Hydra INTERFACE ${PROJECT_SOURCE_DIR})
 
 if(CUDA_FOUND)
 
 	#set cuda flags
-	
-	SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS}  -ftemplate-backtrace-limit=0; --cudart ;  static ; -O4 ;--expt-relaxed-constexpr; -fmad=true; --expt-extended-lambda;--relocatable-device-code=false ;
+	set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS}  -ftemplate-backtrace-limit=0; --cudart ;  static ; -O4 ;--expt-relaxed-constexpr; -fmad=true; --expt-extended-lambda;--relocatable-device-code=false ;
 	-Xptxas -dlcm=ca; -Xptxas --opt-level=4 )
 
-        SET(CUDA_PROPAGATE_HOST_FLAGS ON)
-	SET(CUDA_SEPARABLE_COMPILATION OFF)
-	SET(CUDA_VERBOSE_BUILD OFF)
-	
+    set(CUDA_PROPAGATE_HOST_FLAGS ON)
+	set(CUDA_SEPARABLE_COMPILATION OFF)
+	set(CUDA_VERBOSE_BUILD OFF)
+
 	if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 4.8)
-	   LIST(APPEND CUDA_NVCC_FLAGS " -Xcompiler -D_MWAITXINTRIN_H_INCLUDED ")
-    	endif()
-    	
-        if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 5.4)
-	    LIST(APPEND CUDA_NVCC_FLAGS " -Xcompiler -D__CORRECT_ISO_CPP11_MATH_H_PROTO ")
-    	endif()
+	   list(APPEND CUDA_NVCC_FLAGS " -Xcompiler -D_MWAITXINTRIN_H_INCLUDED ")
+    endif()
+
+    if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 5.4)
+	    list(APPEND CUDA_NVCC_FLAGS " -Xcompiler -D__CORRECT_ISO_CPP11_MATH_H_PROTO ")
+    endif()
 	# Detect CUDA architecture and get best NVCC flags
-	
-	INCLUDE(${CMAKE_CURRENT_SOURCE_DIR}/cmake/FindCudaArch.cmake)
-	
-	SELECT_NVCC_ARCH_FLAGS(NVCC_FLAGS_EXTRA)
-	
-	LIST(APPEND CUDA_NVCC_FLAGS ${NVCC_FLAGS_EXTRA})
-    		
+
+	include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/FindCudaArch.cmake)
+	select_nvcc_arch_flags(NVCC_FLAGS_EXTRA)
+
+	list(APPEND CUDA_NVCC_FLAGS ${NVCC_FLAGS_EXTRA})
+
+    message(STATUS "CUDA include: ${CUDA_INCLUDE_DIRS}" )
+    message(STATUS "CUDA libraries: ${CUDA_LIBRARIES}"  )
+    message(STATUS "NVCC flags: ${CUDA_NVCC_FLAGS}" )
+
+    add_library(Hydra_cuda INTERFACE)
+    target_link_libraries(Hydra_cuda INTERFACE Hydra)
+    add_library(Hydra::CUDA ALIAS Hydra_cuda)
+
 endif(CUDA_FOUND)
 
+add_library(Hydra_cpp INTERFACE)
+add_library(Hydra::CPP ALIAS Hydra_cpp)
+target_compile_options(Hydra_cpp INTERFACE -DTHRUST_HOST_SYSTEM=THRUST_HOST_SYSTEM_CPP -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_CPP)
+target_link_libraries(Hydra_cpp INTERFACE Hydra)
 
-SET(BUILD_CPP_TARGETS  ON)
-
-
-if( OPENMP_CXX_FOUND OR OPENMP_FOUND)
-
-        SET(BUILD_OMP_TARGETS  ON)
-else()
-        SET(BUILD_OMP_TARGETS  OFF)
-endif()
-
-if( CUDA_FOUND )
-	SET(BUILD_CUDA_TARGETS  ON)
-else()
-	SET(BUILD_CUDA_TARGETS  OFF)
+if(TARGET OpenMP::OpenMP_CXX)
+    add_library(Hydra_omp INTERFACE)
+    add_library(Hydra::OMP ALIAS Hydra_omp)
+    target_compile_options(Hydra_omp INTERFACE -DTHRUST_HOST_SYSTEM=THRUST_HOST_SYSTEM_CPP -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_OMP)
+    target_link_libraries(Hydra_omp INTERFACE Hydra OpenMP::OpenMP_CXX)
 endif()
 
 if(TBB_FOUND)
-    SET(BUILD_TBB_TARGETS  ON)
-else()
-    SET(BUILD_TBB_TARGETS  OFF)
-endif(TBB_FOUND)
+    add_library(Hydra_tbb INTERFACE)
+    add_library(Hydra::TBB ALIAS Hydra_tbb)
+    target_compile_options(Hydra_tbb INTERFACE -DTHRUST_HOST_SYSTEM=THRUST_HOST_SYSTEM_CPP -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_TBB)
+    target_link_libraries(Hydra_tbb INTERFACE Hydra TBB_lib)
+endif()
 
-# messages
-MESSAGE(STATUS "TCLAP Include path: ${TCLAP_INCLUDE_DIR}")
-MESSAGE(STATUS "ROOT include path: ${ROOT_INCLUDE_DIR}")
-MESSAGE(STATUS "ROOT library path: ${ROOT_LIBRARY_DIR}" )
-MESSAGE(STATUS "ROOT libraries: ${ROOT_LIBRARIES}")
-MESSAGE(STATUS "Build CUDA/NVCC-based targets: ${BUILD_CUDA_TARGETS}")
-MESSAGE(STATUS "CUDA include: ${CUDA_INCLUDE_DIRS}" )
-MESSAGE(STATUS "CUDA libraries: ${CUDA_LIBRARIES}"  )
-MESSAGE(STATUS "NVCC flags: ${CUDA_NVCC_FLAGS}" )
-MESSAGE(STATUS "Build TBB targets: ${BUILD_TBB_TARGETS}")
-MESSAGE(STATUS "TBB include: ${TBB_INCLUDE_DIRS}" )
-MESSAGE(STATUS "TBB libraries: ${TBB_LIBRARIES}" )
-MESSAGE(STATUS "Build OpenMP targets: ${BUILD_OMP_TARGETS}")
-MESSAGE(STATUS "OpenMP flags: ${OpenMP_CXX_FLAGS}" )
-MESSAGE(STATUS "OpenMP libraries:  ${OpenMP_CXX_LIBRARIES}" )
-MESSAGE(STATUS "Host compiler flags: ${CMAKE_CXX_FLAGS}" )
-MESSAGE(STATUS "Install diretory: ${CMAKE_INSTALL_PREFIX}"  )
-MESSAGE(STATUS "Project source dir: ${PROJECT_SOURCE_DIR}" )
-MESSAGE(STATUS "Project build dir: ${PROJECT_BINARY_DIR}" )
+option(BUILD_CPP_TARGETS "Build CPP backend targets" ON)
+
+if(TARGET Hydra_omp)
+    option(BUILD_OMP_TARGETS "Build OMP backend targets" ON)
+else()
+    option(BUILD_OMP_TARGETS "Build OMP backend targets" OFF)
+endif()
+
+if(TARGET Hydra_cuda)
+    option(BUILD_CUDA_TARGETS "Build CPP backend targets" ON)
+else()
+    option(BUILD_CUDA_TARGETS "Build CUDA backend targets" OFF)
+endif()
+
+if(TARGET Hydra_tbb)
+    option(BUILD_TBB_TARGETS "Build TBB backend targets" ON)
+else()
+    option(BUILD_TBB_TARGETS "Build TBB backend targets" OFF)
+endif()
+
+# Nice messages over the status
+message(STATUS "Build CUDA/NVCC-based targets: ${BUILD_CUDA_TARGETS}")
+message(STATUS "Build TBB targets: ${BUILD_TBB_TARGETS}")
+message(STATUS "Build OpenMP targets: ${BUILD_OMP_TARGETS}")
+
+message(STATUS "Install diretory: ${CMAKE_INSTALL_PREFIX}"  )
+message(STATUS "Project source dir: ${PROJECT_SOURCE_DIR}" )
+message(STATUS "Project build dir: ${PROJECT_BINARY_DIR}" )
 
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/plots)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/plots/dalitz)
 
 
-#+++++++++++++++++++++++++++
-#        EXAMPLES          +
-#+++++++++++++++++++++++++++
-add_custom_target(examples)
-
-
+# This is primarily for examples, but users can also add their
+# own packages with the commands provided in this file, too
 include(${Hydra_CMAKE_DIR}/AddHydraExample.cmake)
 
-add_subdirectory(examples/phase_space)
-add_subdirectory(examples/numerical_integration)
-add_subdirectory(examples/random)
-add_subdirectory(examples/fit)
-add_subdirectory(examples/histograming)
-add_subdirectory(examples/async)
-add_subdirectory(examples/misc)
-add_subdirectory(examples/phys)
+
+# Examples
+if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+    option(HYDRA_EXAMPLES "Build the Hydra examples" ON)
+else()
+    option(HYDRA_EXAMPLES "Build the Hydra examples" ON)
+endif()
+
+if(HYDRA_EXAMPLES)
+    add_custom_target(examples)
+    if(NOT TCLAP_FOUND)
+        message(FATAL_ERROR "TCLAP is required for the examples!")
+    endif()
+    add_subdirectory(examples/phase_space)
+    add_subdirectory(examples/numerical_integration)
+    add_subdirectory(examples/random)
+    add_subdirectory(examples/fit)
+    add_subdirectory(examples/histograming)
+    add_subdirectory(examples/async)
+    add_subdirectory(examples/misc)
+    add_subdirectory(examples/phys)
+endif()
 
 
+# Installing
 install(DIRECTORY Hydra
   DESTINATION include)
 
-install(DIRECTORY 
+install(DIRECTORY
 	src
   DESTINATION src/hydra/samples)
-  
-install(DIRECTORY 
+
+install(DIRECTORY
 	cmake
   DESTINATION src/hydra/cmake)
 
@@ -191,13 +241,12 @@ install(FILES
   README.md
   CHANGELOG.md
   DESTINATION src/Hydra)
-  
 
 
+# Documentation
 if(BUILD_DOCUMENTATION)
-
     if(NOT DOXYGEN_FOUND)
-        message(FALTAL_ERROR "Doxygen is needed to build the documentation.")
+        message(FATAL_ERROR "Doxygen is needed to build the documentation.")
     endif()
 
     set(doxyfile_in ${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in)
@@ -212,19 +261,19 @@ if(BUILD_DOCUMENTATION)
         VERBATIM)
 
     install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/doc DESTINATION src/hydra/doc)
-    
+
 endif()
 
-# build a CPack driven installer package
+# Build a CPack driven installer package
 include (InstallRequiredSystemLibraries)
-set (CPACK_SOURCE_IGNORE_FILES  build/*)
-set (CPACK_RESOURCE_FILE_LICENSE  
+set(CPACK_SOURCE_IGNORE_FILES  build/*)
+set(CPACK_RESOURCE_FILE_LICENSE
      "${CMAKE_CURRENT_SOURCE_DIR}/COPYING")
-set (CPACK_RESOURCE_FILE_README  
+set(CPACK_RESOURCE_FILE_README
      "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
-set (CPACK_PACKAGE_VERSION_MAJOR "${Hydra_VERSION_MAJOR}")
-set (CPACK_PACKAGE_VERSION_MINOR "${Hydra_VERSION_MINOR}")
-set (CPACK_PACKAGE_VERSION_PATCH "${Hydra_VERSION_PATCH}")
+set(CPACK_PACKAGE_VERSION_MAJOR "${HYDRA_VERSION_MAJOR}")
+set(CPACK_PACKAGE_VERSION_MINOR "${HYDRA_VERSION_MINOR}")
+set(CPACK_PACKAGE_VERSION_PATCH "${HYDRA_VERSION_PATCH}")
 include (CPack)
 
 
