@@ -19,8 +19,8 @@ function(ADD_HYDRA_EXAMPLE target_name)
     # CPP
     if(BUILD_CPP_TARGETS)
         set(ADDINGMESSAGE "${ADDINGMESSAGE} ${target_name}_cpp")
-        add_executable("${target_name}_cpp" "${target_norm}")
-        target_link_libraries("${target_name}_cpp" PUBLIC ROOT_lib tclap_lib Hydra_cpp)
+        add_executable(${target_name}_cpp ${target_norm})
+        target_link_libraries(${target_name}_cpp PUBLIC ROOT_lib tclap_lib Hydra_cpp)
         target_compile_options(${target_name}_cpp PUBLIC -x c++)
 
     endif()
@@ -40,7 +40,7 @@ function(ADD_HYDRA_EXAMPLE target_name)
     # TBB
     if(BUILD_TBB_TARGETS)
         set(ADDINGMESSAGE "${ADDINGMESSAGE} ${target_name}_tbb")
-        add_executable("${target_name}_tbb" "${target_norm}")
+        add_executable("${target_name}_tbb" ${target_norm})
 
         target_link_libraries("${target_name}_tbb" PUBLIC ROOT_lib tclap_lib Hydra_tbb)
         target_compile_options(${target_name}_tbb PUBLIC -x c++)
@@ -49,9 +49,9 @@ function(ADD_HYDRA_EXAMPLE target_name)
     # OMP
     if(BUILD_OMP_TARGETS)
         set(ADDINGMESSAGE "${ADDINGMESSAGE} ${target_name}_omp")
-        add_executable("${target_name}_omp" "${target_norm}" )
+        add_executable(${target_name}_omp ${target_norm})
 
-        target_link_libraries( "${target_name}_omp" PUBLIC ROOT_lib tclap_lib Hydra_omp)
+        target_link_libraries(${target_name}_omp PUBLIC ROOT_lib tclap_lib Hydra_omp)
         target_compile_options(${target_name}_omp PUBLIC -x c++)
     endif()
 

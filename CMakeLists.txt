@@ -70,16 +70,10 @@ endif(ROOT_FOUND)
 
 # Get CUDA
 find_package(CUDA 8.0)
-if(CUDA_FOUND)
-    target_link_directories(Hydra INTERFACE ${CUDA_TOOLKIT_ROOT_DIR}/lib64/)
-endif()
 
 # Get TBB
 find_package(TBB)
 if(TBB_FOUND)
-    add_library(TBB_lib INTERFACE)
-    target_include_directories(TBB_lib INTERFACE ${TBB_INCLUDE_DIRS})
-    target_link_libraries(TBB_lib INTERFACE ${TBB_LIBRARIES})
     message(STATUS "TBB include: ${TBB_INCLUDE_DIRS}" )
     message(STATUS "TBB libraries: ${TBB_LIBRARIES}" )
 endif()
@@ -111,8 +105,11 @@ target_include_directories(Hydra INTERFACE ${PROJECT_SOURCE_DIR})
 if(CUDA_FOUND)
 
 	#set cuda flags
-	set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS}  -ftemplate-backtrace-limit=0; --cudart ;  static ; -O4 ;--expt-relaxed-constexpr; -fmad=true; --expt-extended-lambda;--relocatable-device-code=false ;
-	-Xptxas -dlcm=ca; -Xptxas --opt-level=4 )
+	set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS}; -ftemplate-backtrace-limit=0; --cudart ;  static ; -O4 ;--expt-relaxed-constexpr; -fmad=true; --expt-extended-lambda;--relocatable-device-code=false ;
+	-Xptxas -dlcm=ca; -Xptxas --opt-level=4; -std=c++11 )
+    if(ROOT_FOUND)
+        set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS}; -D_ROOT_AVAILABLE_)
+    endif()
 
     set(CUDA_PROPAGATE_HOST_FLAGS ON)
 	set(CUDA_SEPARABLE_COMPILATION OFF)
@@ -158,7 +155,7 @@ if(TBB_FOUND)
     add_library(Hydra_tbb INTERFACE)
     add_library(Hydra::TBB ALIAS Hydra_tbb)
     target_compile_options(Hydra_tbb INTERFACE -DTHRUST_HOST_SYSTEM=THRUST_HOST_SYSTEM_CPP -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_TBB)
-    target_link_libraries(Hydra_tbb INTERFACE Hydra TBB_lib)
+    target_link_libraries(Hydra_tbb INTERFACE Hydra tbb)
 endif()
 
 option(BUILD_CPP_TARGETS "Build CPP backend targets" ON)
@@ -175,7 +172,7 @@ else()
     option(BUILD_CUDA_TARGETS "Build CUDA backend targets" OFF)
 endif()
 
-if(TARGET Hydra_tbb)
+if(TARGET tbb)
     option(BUILD_TBB_TARGETS "Build TBB backend targets" ON)
 else()
     option(BUILD_TBB_TARGETS "Build TBB backend targets" OFF)
